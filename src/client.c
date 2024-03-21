@@ -1,4 +1,3 @@
-#include "../include/display.h"
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +55,6 @@ int main(void)
     }
     delwin(w);
     endwin();
-    display("Hello WOrld\n");
 
     return EXIT_SUCCESS;
 }
