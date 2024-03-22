@@ -64,20 +64,32 @@ int main(int argc, char *argv[])
         switch(ch)
         {
             case KEY_UP:
-                coordinates.y--;
-                mvwprintw(w, (int)coordinates.y + 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                if(coordinates.y != 1)
+                {
+                    coordinates.y--;
+                    mvwprintw(w, (int)coordinates.y + 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                }
                 break;
             case KEY_DOWN:
-                coordinates.y++;
-                mvwprintw(w, (int)coordinates.y - 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                if(coordinates.y != WINDOW_Y_LENGTH - 2)
+                {
+                    coordinates.y++;
+                    mvwprintw(w, (int)coordinates.y - 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                }
                 break;
             case KEY_LEFT:
-                coordinates.x--;
-                mvwprintw(w, (int)coordinates.y, (int)coordinates.x + 1, "%s", " ");    // replace old character position with space
+                if(coordinates.x != 1)
+                {
+                    coordinates.x--;
+                    mvwprintw(w, (int)coordinates.y, (int)coordinates.x + 1, "%s", " ");    // replace old character position with space
+                }
                 break;
             case KEY_RIGHT:
-                coordinates.x++;
-                mvwprintw(w, (int)coordinates.y, (int)coordinates.x - 1, "%s", " ");    // replace old character position with space
+                if(coordinates.x != WINDOW_X_LENGTH - 2)
+                {
+                    coordinates.x++;
+                    mvwprintw(w, (int)coordinates.y, (int)coordinates.x - 1, "%s", " ");    // replace old character position with space
+                }
                 break;
             default:
                 break;
