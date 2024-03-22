@@ -130,9 +130,9 @@ generate_cmake_content()
   echo "" >> "$output_file"
 
   # Import code_generation_flags.txt
-  echo "file(STRINGS \"\${CMAKE_SOURCE_DIR}/.flags/\${COMPILER_NAME}/code_generation_flags.txt\" CODE_GENERATION_FLAGS_STRING)" >> "$output_file"
-  echo "split_string_into_list(\"\${CODE_GENERATION_FLAGS_STRING}\" CODE_GENERATION_FLAGS_LIST)" >> "$output_file"
-  echo "" >> "$output_file"
+#  echo "file(STRINGS \"\${CMAKE_SOURCE_DIR}/.flags/\${COMPILER_NAME}/code_generation_flags.txt\" CODE_GENERATION_FLAGS_STRING)" >> "$output_file"
+#  echo "split_string_into_list(\"\${CODE_GENERATION_FLAGS_STRING}\" CODE_GENERATION_FLAGS_LIST)" >> "$output_file"
+#  echo "" >> "$output_file"
 
   # Import debug_flags.txt
   echo "file(STRINGS \"\${CMAKE_SOURCE_DIR}/.flags/\${COMPILER_NAME}/debug_flags.txt\" DEBUG_FLAGS_STRING)" >> "$output_file"
@@ -200,16 +200,16 @@ generate_cmake_content()
   echo "endif()" >> "$output_file"
   echo "" >> "$output_file"
 
-  echo "if(SANITIZER_leak STREQUAL \"ON\")" >> "$output_file"
-  echo "    message(STATUS \"SANITIZER_leak is ON\")" >> "$output_file"
-  echo "    file(STRINGS \"\${CMAKE_CURRENT_SOURCE_DIR}/.flags/\${COMPILER_NAME}/leak_sanitizer_flags.txt\" LEAK_SANITIZER_FLAGS_STRING)" >> "$output_file"
-  echo "    string(REPLACE \" \" \";\" LEAK_SANITIZER_FLAGS_LIST \"\${LEAK_SANITIZER_FLAGS_STRING}\")" >> "$output_file"
-  for entity in "${targets[@]}"; do
-    echo "    target_compile_options($entity PRIVATE \${LEAK_SANITIZER_FLAGS_LIST})" >> "$output_file"
-    echo "    target_link_options($entity PRIVATE \${LEAK_SANITIZER_FLAGS_LIST})" >> "$output_file"
-  done
-  echo "endif()" >> "$output_file"
-  echo "" >> "$output_file"
+#  echo "if(SANITIZER_leak STREQUAL \"ON\")" >> "$output_file"
+#  echo "    message(STATUS \"SANITIZER_leak is ON\")" >> "$output_file"
+#  echo "    file(STRINGS \"\${CMAKE_CURRENT_SOURCE_DIR}/.flags/\${COMPILER_NAME}/leak_sanitizer_flags.txt\" LEAK_SANITIZER_FLAGS_STRING)" >> "$output_file"
+#  echo "    string(REPLACE \" \" \";\" LEAK_SANITIZER_FLAGS_LIST \"\${LEAK_SANITIZER_FLAGS_STRING}\")" >> "$output_file"
+#  for entity in "${targets[@]}"; do
+#    echo "    target_compile_options($entity PRIVATE \${LEAK_SANITIZER_FLAGS_LIST})" >> "$output_file"
+#    echo "    target_link_options($entity PRIVATE \${LEAK_SANITIZER_FLAGS_LIST})" >> "$output_file"
+#  done
+#  echo "endif()" >> "$output_file"
+#  echo "" >> "$output_file"
 
   echo "if(SANITIZER_memory STREQUAL \"ON\")" >> "$output_file"
   echo "    message(STATUS \"SANITIZER_memory is ON\")" >> "$output_file"
