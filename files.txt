@@ -1,1 +1,2 @@
 client src/client.c src/display.c include/display.h src/arguments.c include/arguments.h include/structs.h ncurses p101_env p101_error p101_c p101_posix p101_unix
+server src/server.c src/arguments.c include/arguments.h include/structs.h p101_env p101_error p101_c p101_posix p101_unix
