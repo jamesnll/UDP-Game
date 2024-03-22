@@ -1,4 +1,5 @@
 #include "../include/arguments.h"
+#include "../include/network.h"
 #include "../include/signal_handler.h"
 #include <p101_c/p101_string.h>
 #include <stdio.h>
@@ -49,12 +50,20 @@ int main(int argc, char *argv[])
         goto free_env;
     }
 
+    socket_create(env, error, &context);
+    if(p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+        goto free_env;
+    }
+
     setup_signal_handler();
     while(!exit_flag)
     {
     }
 
     ret_val = EXIT_SUCCESS;
+    socket_close(env, error, &context);
 
 free_env:
     free(context.exit_message);
