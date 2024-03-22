@@ -57,12 +57,20 @@ int main(int argc, char *argv[])
         goto free_env;
     }
 
+    socket_bind(env, error, &context);
+    if (p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+    }
+
     setup_signal_handler();
     while(!exit_flag)
     {
     }
 
     ret_val = EXIT_SUCCESS;
+
+
     socket_close(env, error, &context);
 
 free_env:

@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 void socket_create(const struct p101_env *env, struct p101_error *err, struct context *context);
+void socket_bind(const struct p101_env *env, struct p101_error *err, struct context *context);
 void socket_close(const struct p101_env *env, struct p101_error *err, const struct context *context);
 
 #endif    // UDP_GAME_NETWORK_H
