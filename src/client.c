@@ -1,3 +1,4 @@
+#include "../include/display.h"
 #include "../include/structs.h"
 #include <ncurses.h>
 #include <stdio.h>
@@ -11,21 +12,16 @@
 int main(void)
 {
     WINDOW            *w;
-    const char        *character = ".";
+    const char        *player = ".";
     int                ch;
     struct coordinates coordinates;
 
     coordinates.x = INITIAL_X;
     coordinates.y = INITIAL_Y;
 
-    initscr();                                                                // initialize Ncurses
-    w = newwin(WINDOW_Y_LENGTH, WINDOW_X_LENGTH, 1, 1);                       // create a new window
-    box(w, 0, 0);                                                             // sets default borders for the window
-    mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", character);    // Set the position of the characte to (7,5)
-    wrefresh(w);                                                              // update the terminal screen
-    noecho();                                                                 // disable echoing of characters on the screen
-    keypad(w, TRUE);                                                          // enable keyboard input for the window.
-    curs_set(0);                                                              // hide the default screen cursor.
+    initscr();                                             // initialize Ncurses
+    w = newwin(WINDOW_Y_LENGTH, WINDOW_X_LENGTH, 1, 1);    // create a new window
+    setup_window(w, &coordinates, player);
 
     while((ch = wgetch(w)) != 'q')    // get the input
     {
@@ -51,7 +47,7 @@ int main(void)
             default:
                 break;
         }
-        mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", character);    // update the characters position
+        mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);    // update the characters position
     }
     delwin(w);
     endwin();
