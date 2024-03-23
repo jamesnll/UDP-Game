@@ -58,9 +58,10 @@ int main(int argc, char *argv[])
     }
 
     socket_bind(env, error, &context);
-    if (p101_error_has_error(error))
+    if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
+        goto close_socket;
     }
 
     setup_signal_handler();
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
 
     ret_val = EXIT_SUCCESS;
 
-
+close_socket:
     socket_close(env, error, &context);
 
 free_env:
