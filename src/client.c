@@ -1,5 +1,6 @@
 #include "../include/arguments.h"
 #include "../include/display.h"
+#include "../include/network.h"
 #include <ncurses.h>
 #include <p101_c/p101_string.h>
 #include <stdio.h>
@@ -49,6 +50,26 @@ int main(int argc, char *argv[])
     {
         ret_val = EXIT_FAILURE;
         goto free_env;
+    }
+    convert_address(env, error, &context);
+    if(p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+        goto free_env;
+    }
+
+    socket_create(env, error, &context);
+    if(p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+        goto free_env;
+    }
+
+    socket_bind(env, error, &context);
+    if(p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+        goto close_socket;
     }
 
     coordinates.x = INITIAL_X;
@@ -100,6 +121,9 @@ int main(int argc, char *argv[])
     endwin();
 
     ret_val = EXIT_SUCCESS;
+
+close_socket:
+    socket_close(env, error, &context);
 
 free_env:
     free(context.exit_message);
