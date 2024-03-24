@@ -16,6 +16,10 @@
 
 void socket_create(const struct p101_env *env, struct p101_error *err, struct context *context);
 void socket_bind(const struct p101_env *env, struct p101_error *err, struct context *context);
+void serialize_position_to_buffer(const struct p101_env *env, const struct coordinates *coordinates, uint8_t *buffer);
+void deserialize_position_from_buffer(const struct p101_env *env, struct coordinates *coordinates, const uint8_t *buffer);
+// void socket_read_full();
+// void socket_write_full();
 void socket_close(const struct p101_env *env, struct p101_error *err, const struct context *context);
 
 #endif    // UDP_GAME_NETWORK_H

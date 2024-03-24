@@ -66,6 +66,34 @@ done:
     return;
 }
 
+void serialize_position_to_buffer(const struct p101_env *env, const struct coordinates *coordinates, uint8_t *buffer)
+{
+    uint32_t net_x;
+    uint32_t net_y;
+
+    P101_TRACE(env);
+
+    net_x = htonl(coordinates->x);
+    net_y = htonl(coordinates->y);
+
+    memcpy(buffer, &net_x, sizeof(net_x));
+    memcpy(buffer + sizeof(net_x), &net_y, sizeof(net_y));
+}
+
+void deserialize_position_from_buffer(const struct p101_env *env, struct coordinates *coordinates, const uint8_t *buffer)
+{
+    uint32_t net_x;
+    uint32_t net_y;
+
+    P101_TRACE(env);
+
+    memcpy(&net_x, buffer, sizeof(net_x));
+    memcpy(&net_y, buffer + sizeof(net_x), sizeof(net_y));
+
+    coordinates->x = ntohl(net_x);
+    coordinates->y = ntohl(net_y);
+}
+
 void socket_close(const struct p101_env *env, struct p101_error *err, const struct context *context)
 {
     P101_TRACE(env);
