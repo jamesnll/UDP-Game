@@ -94,7 +94,7 @@ void deserialize_position_from_buffer(const struct p101_env *env, struct coordin
     coordinates->y = ntohl(net_y);
 }
 
-ssize_t socket_read_full(const struct p101_env *env, int sockfd, struct sockaddr *addr, socklen_t *addrlen, uint8_t *buffer, size_t size)
+ssize_t socket_read_full(const struct p101_env *env, int sockfd, uint8_t *buffer, size_t size, struct sockaddr *addr, socklen_t *addrlen)
 {
     size_t total_read;
 
@@ -124,7 +124,7 @@ ssize_t socket_read_full(const struct p101_env *env, int sockfd, struct sockaddr
     return (ssize_t)total_read;
 }
 
-ssize_t socket_write_full(const struct p101_env *env, int sockfd, const struct sockaddr *addr, socklen_t addrlen, const uint8_t *buffer, size_t size)
+ssize_t socket_write_full(const struct p101_env *env, int sockfd, const uint8_t *buffer, size_t size, const struct sockaddr *addr, socklen_t addrlen)
 {
     size_t total_written;
 
