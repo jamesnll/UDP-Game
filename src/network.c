@@ -94,6 +94,36 @@ void deserialize_position_from_buffer(const struct p101_env *env, struct coordin
     coordinates->y = ntohl(net_y);
 }
 
+ssize_t socket_read_full(const struct p101_env *env, int sockfd, struct sockaddr *addr, socklen_t *addrlen, uint8_t *buffer, size_t size)
+{
+    size_t total_read;
+
+    P101_TRACE(env);
+
+    total_read = 0;
+
+    while(total_read < size)
+    {
+        ssize_t bytes_read;
+
+        bytes_read = recvfrom(sockfd, buffer + total_read, size - total_read, 0, addr, addrlen);
+
+        if(bytes_read == -1)
+        {
+            return -1;
+        }
+
+        if(bytes_read == 0)
+        {
+            return -2;    // EOF reached before reading desired size
+        }
+
+        total_read += (size_t)bytes_read;
+    }
+
+    return (ssize_t)total_read;
+}
+
 ssize_t socket_write_full(const struct p101_env *env, int sockfd, const struct sockaddr *addr, socklen_t addrlen, const uint8_t *buffer, size_t size)
 {
     size_t total_written;
