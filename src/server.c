@@ -68,6 +68,16 @@ int main(int argc, char *argv[])
     setup_signal_handler();
     while(!exit_flag)
     {
+        struct coordinates coordinates;
+        ssize_t            bytes_read;
+        uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
+
+        coordinates.x = 0;
+        coordinates.y = 0;
+
+        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.src_addr, context.settings.src_addr_len);
+        deserialize_position_from_buffer(env, &coordinates, buffer);
+        printf("Bytes read: %zu\n X: %d\nY: %d\n", (size_t)bytes_read, (int)coordinates.x, (int)coordinates.y);
     }
 
     ret_val = EXIT_SUCCESS;

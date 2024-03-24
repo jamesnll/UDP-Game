@@ -117,9 +117,9 @@ int main(int argc, char *argv[])
             default:
                 break;
         }
-        mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);    // update the characters position
-        serialize_position_to_buffer(env, &coordinates, buffer);               // Serialize the coordinates struct
-                                                                               //        socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), )
+        mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);                                                                                         // update the characters position
+        serialize_position_to_buffer(env, &coordinates, buffer);                                                                                                    // Serialize the coordinates struct
+        socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);    // Send updated coordinates to server
     }
     delwin(w);
     endwin();
