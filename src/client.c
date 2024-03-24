@@ -1,4 +1,4 @@
-#include "../include/arguments.h"
+#include "../include/convert.h"
 #include "../include/display.h"
 #include "../include/network.h"
 #include <ncurses.h>
@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
     struct arguments   arguments;
     struct context     context;
     struct coordinates coordinates;
+    uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
 
     error = p101_error_create(false);
     if(error == NULL)
@@ -52,25 +53,7 @@ int main(int argc, char *argv[])
 
     parse_arguments(env, error, &context);
     check_arguments(env, error, &context);
-    context.settings.src_port = parse_in_port_t(env, error, context.arguments->src_port_str);
-    if(p101_error_has_error(error))
-    {
-        ret_val = EXIT_FAILURE;
-        goto free_env;
-    }
-    convert_address(env, error, context.settings.src_ip_address, &context.settings.src_addr);
-    if(p101_error_has_error(error))
-    {
-        ret_val = EXIT_FAILURE;
-        goto free_env;
-    }
-    context.settings.dest_port = parse_in_port_t(env, error, context.arguments->dest_port_str);
-    if(p101_error_has_error(error))
-    {
-        ret_val = EXIT_FAILURE;
-        goto free_env;
-    }
-    convert_address(env, error, context.settings.dest_ip_address, &context.settings.dest_addr);
+    convert_client_args(env, error, &context);
     if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
@@ -135,6 +118,8 @@ int main(int argc, char *argv[])
                 break;
         }
         mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);    // update the characters position
+        serialize_position_to_buffer(env, &coordinates, buffer);               // Serialize the coordinates struct
+                                                                               //        socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), )
     }
     delwin(w);
     endwin();
@@ -183,12 +168,12 @@ static void parse_arguments(struct p101_env *env, struct p101_error *err, struct
                 context->arguments->src_port_str = optarg;
                 break;
             }
-            case 'A': // Destination IP address argument
+            case 'A':    // Destination IP address argument
             {
                 context->arguments->dest_ip_address = optarg;
                 break;
             }
-            case 'P': // Destination port argument
+            case 'P':    // Destination port argument
             {
                 context->arguments->dest_port_str = optarg;
                 printf("dest port: %s\n", optarg);

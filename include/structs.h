@@ -27,6 +27,8 @@ struct settings
     int                     sockfd;
     struct sockaddr_storage src_addr;
     struct sockaddr_storage dest_addr;
+    socklen_t               src_addr_len;
+    socklen_t               dest_addr_len;
 };
 
 struct context

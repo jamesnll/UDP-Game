@@ -15,7 +15,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-in_port_t parse_in_port_t(const struct p101_env *env, struct p101_error *err, const char *port_str);
-void      convert_address(const struct p101_env *env, struct p101_error *err, const char *ip_address, struct sockaddr_storage *addr);
+void convert_client_args(const struct p101_env *env, struct p101_error *err, struct context *context);
+void convert_server_args(const struct p101_env *env, struct p101_error *err, struct context *context);
 
 #endif    // UDP_GAME_ARGUMENTS_H

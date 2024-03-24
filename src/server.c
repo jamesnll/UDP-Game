@@ -1,4 +1,4 @@
-#include "../include/arguments.h"
+#include "../include/convert.h"
 #include "../include/network.h"
 #include "../include/signal_handler.h"
 #include <p101_c/p101_string.h>
@@ -44,13 +44,7 @@ int main(int argc, char *argv[])
 
     parse_arguments(env, error, &context);
     check_arguments(env, error, &context);
-    context.settings.src_port = parse_in_port_t(env, error, context.arguments->src_port_str);
-    if(p101_error_has_error(error))
-    {
-        ret_val = EXIT_FAILURE;
-        goto free_env;
-    }
-    convert_address(env, error, context.settings.src_ip_address, &context.settings.src_addr);
+    convert_server_args(env, error, &context);
     if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
