@@ -11,6 +11,13 @@
 #define WINDOW_Y_LENGTH 50
 #define WINDOW_X_LENGTH 100
 
+#define UNKNOWN_OPTION_MESSAGE_LEN 24
+#define REQUIRED_ARGS_NUM 9
+
+static void           parse_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
+static void           check_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
+static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct context *context);
+
 int main(int argc, char *argv[])
 {
     WINDOW            *w;
@@ -45,27 +52,39 @@ int main(int argc, char *argv[])
 
     parse_arguments(env, error, &context);
     check_arguments(env, error, &context);
-    parse_in_port_t(env, error, &context);
+    context.settings.src_port = parse_in_port_t(env, error, context.arguments->src_port_str);
     if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
         goto free_env;
     }
-    convert_address(env, error, &context);
+    convert_address(env, error, context.settings.src_ip_address, &context.settings.src_addr);
+    if(p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+        goto free_env;
+    }
+    context.settings.dest_port = parse_in_port_t(env, error, context.arguments->dest_port_str);
+    if(p101_error_has_error(error))
+    {
+        ret_val = EXIT_FAILURE;
+        goto free_env;
+    }
+    convert_address(env, error, context.settings.dest_ip_address, &context.settings.dest_addr);
     if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
         goto free_env;
     }
 
-    socket_create(env, error, &context);
+    socket_create(env, error, &context.settings.sockfd, context.settings.src_addr.ss_family);
     if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
         goto free_env;
     }
 
-    socket_bind(env, error, &context);
+    socket_bind(env, error, context.settings.sockfd, context.settings.src_port, &context.settings.src_addr);
     if(p101_error_has_error(error))
     {
         ret_val = EXIT_FAILURE;
@@ -126,7 +145,6 @@ close_socket:
     socket_close(env, error, &context);
 
 free_env:
-    free(context.exit_message);
     free(env);
 
 free_error:
@@ -140,4 +158,134 @@ free_error:
 done:
     printf("Exit code: %d\n", ret_val);
     return ret_val;
+}
+
+static void parse_arguments(struct p101_env *env, struct p101_error *err, struct context *context)
+{
+    int opt;
+
+    P101_TRACE(env);
+
+    context->arguments->program_name = context->arguments->argv[0];
+    opterr                           = 0;
+
+    while((opt = getopt(context->arguments->argc, context->arguments->argv, "hA:P:a:p:")) != -1)
+    {
+        switch(opt)
+        {
+            case 'a':    // Source IP address argument
+            {
+                context->arguments->src_ip_address = optarg;
+                break;
+            }
+            case 'p':    // Source port argument
+            {
+                context->arguments->src_port_str = optarg;
+                break;
+            }
+            case 'A': // Destination IP address argument
+            {
+                context->arguments->dest_ip_address = optarg;
+                break;
+            }
+            case 'P': // Destination port argument
+            {
+                context->arguments->dest_port_str = optarg;
+                printf("dest port: %s\n", optarg);
+                break;
+            }
+            case 'h':    // Help argument
+            {
+                goto usage;
+            }
+            case '?':
+            {
+                char message[UNKNOWN_OPTION_MESSAGE_LEN];
+
+                snprintf(message, sizeof(message), "Unknown option '-%c'.", optopt);
+                context->exit_message = p101_strdup(env, err, message);
+                goto usage;
+            }
+            default:
+            {
+                context->exit_message = p101_strdup(env, err, "Unknown error with getopt.");
+                goto usage;
+            }
+        }
+    }
+
+    if(optind > REQUIRED_ARGS_NUM)
+    {
+        context->exit_message = p101_strdup(env, err, "Too many arguments.");
+        goto usage;
+    }
+
+    return;
+
+usage:
+    usage(env, err, context);
+}
+
+static void check_arguments(struct p101_env *env, struct p101_error *err, struct context *context)
+{
+    P101_TRACE(env);
+
+    if(context->arguments->src_ip_address == NULL)
+    {
+        context->exit_message = p101_strdup(env, err, "<source ip_address> must be passed.");
+        goto usage;
+    }
+
+    if(context->arguments->src_port_str == NULL)
+    {
+        context->exit_message = p101_strdup(env, err, "<source port> must be passed.");
+        goto usage;
+    }
+
+    if(context->arguments->dest_ip_address == NULL)
+    {
+        context->exit_message = p101_strdup(env, err, "<destination ip address> must be passed.");
+        goto usage;
+    }
+
+    if(context->arguments->dest_port_str == NULL)
+    {
+        context->exit_message = p101_strdup(env, err, "<destination port> must be passed.");
+        goto usage;
+    }
+
+    context->settings.src_ip_address  = context->arguments->src_ip_address;
+    context->settings.dest_ip_address = context->arguments->dest_ip_address;
+    return;
+
+usage:
+    usage(env, err, context);
+}
+
+static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct context *context)
+{
+    P101_TRACE(env);
+
+    context->exit_code = EXIT_FAILURE;
+
+    if(context->exit_message != NULL)
+    {
+        fprintf(stderr, "%s\n", context->exit_message);
+    }
+
+    fprintf(stderr, "Usage: %s [-h] -a <source ip_address> -p <source port> -A <destination ip address> -P <destination port>\n", context->arguments->program_name);
+    fputs("Options:\n", stderr);
+    fputs("  -h Display this help message\n", stderr);
+    fputs("  -a <source ip_address>  Option 'a' (required) with an IP Address.\n", stderr);
+    fputs("  -p <source port>        Option 'p' (required) with a port.\n", stderr);
+    fputs("  -a <destination ip_address>  Option 'A' (required) with an IP Address.\n", stderr);
+    fputs("  -p <destination port>        Option 'P' (required) with a port.\n", stderr);
+
+    free(context->exit_message);
+    free(env);
+    p101_error_reset(err);
+    free(err);
+
+    printf("Exit code: %d\n", context->exit_code);
+    exit(context->exit_code);
 }

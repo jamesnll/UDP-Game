@@ -11,17 +11,22 @@ struct arguments
     int         argc;
     const char *program_name;
     const char *message;
-    const char *ip_address;
-    const char *port_str;
+    const char *src_ip_address;
+    const char *src_port_str;
+    const char *dest_ip_address;
+    const char *dest_port_str;
     char      **argv;
 };
 
 struct settings
 {
-    const char             *ip_address;
+    const char             *src_ip_address;
+    in_port_t               src_port;
+    const char             *dest_ip_address;
+    in_port_t               dest_port;
     int                     sockfd;
-    in_port_t               port;
-    struct sockaddr_storage addr;
+    struct sockaddr_storage src_addr;
+    struct sockaddr_storage dest_addr;
 };
 
 struct context
