@@ -19,7 +19,7 @@ void socket_bind(const struct p101_env *env, struct p101_error *err, struct cont
 void serialize_position_to_buffer(const struct p101_env *env, const struct coordinates *coordinates, uint8_t *buffer);
 void deserialize_position_from_buffer(const struct p101_env *env, struct coordinates *coordinates, const uint8_t *buffer);
 // void socket_read_full();
-// void socket_write_full();
-void socket_close(const struct p101_env *env, struct p101_error *err, const struct context *context);
+ssize_t socket_write_full(const struct p101_env *env, int sockfd, const struct sockaddr *addr, socklen_t addrlen, const uint8_t *buffer, size_t size);
+void    socket_close(const struct p101_env *env, struct p101_error *err, const struct context *context);
 
 #endif    // UDP_GAME_NETWORK_H
