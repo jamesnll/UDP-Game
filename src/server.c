@@ -68,16 +68,25 @@ int main(int argc, char *argv[])
     setup_signal_handler();
     while(!exit_flag)
     {
+        struct sockaddr_in client_addr;
+        char               client_ip[INET6_ADDRSTRLEN];
+        socklen_t          client_addr_len;
         struct coordinates coordinates;
         ssize_t            bytes_read;
         uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
 
+        client_addr_len = sizeof(client_addr);
+        memset(&client_addr, 0, sizeof(client_addr));
+
         coordinates.x = 0;
         coordinates.y = 0;
 
-        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.src_addr, context.settings.src_addr_len);
+        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&client_addr, client_addr_len);
         deserialize_position_from_buffer(env, &coordinates, buffer);
         printf("Bytes read: %zu\n X: %d\nY: %d\n", (size_t)bytes_read, (int)coordinates.x, (int)coordinates.y);
+        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
+        printf("Client IP address: %s\n", client_ip);
+        printf("Client port: %d\n", ntohs(client_addr.sin_port));
     }
 
     ret_val = EXIT_SUCCESS;
@@ -205,3 +214,32 @@ static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct
     printf("Exit code: %d\n", context->exit_code);
     exit(context->exit_code);
 }
+
+/*
+ * TODO: Storing client IP addresses to broadcast
+ * have an array of string ip addresses
+ * dynamic memory
+ * reallocs for each connection
+ * check if ip address is in the array
+ * if found, skip
+ * if not found, add to the array
+ * frees when disconnected
+ */
+
+/*
+ * TODO: Broadcasting messages
+ * receive message from client
+ * store client IP address into array (from steps above) if needed
+ * iterate through the IP address array
+ * if the recv msg ip address matches the index in the array, continue
+ * if the recv msg ip address doesn't match the index in the array, send the recv msg to that IP address
+ */
+
+/*
+ * TODO: Removing a client IP address from the array
+ * Client disconnects, send a special set of coords? (something out of bounds)
+ * Server receives the coords
+ * If the coords match the "exit coords"
+ * Free that index from the array
+ * Reorder array
+ */
