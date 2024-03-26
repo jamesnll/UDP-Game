@@ -118,11 +118,18 @@ int main(int argc, char *argv[])
                 break;
         }
         mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);                                                                                         // update the characters position
+        wrefresh(w);                                                                                                                                                // update the terminal screen
         serialize_position_to_buffer(env, &coordinates, buffer);                                                                                                    // Serialize the coordinates struct
         socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);    // Send updated coordinates to server
     }
     delwin(w);
     endwin();
+
+    // write the exit coords to server
+    coordinates.x = EXIT_COORDINATE;
+    coordinates.y = EXIT_COORDINATE;
+    serialize_position_to_buffer(env, &coordinates, buffer);
+    socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);
 
     ret_val = EXIT_SUCCESS;
 
