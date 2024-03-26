@@ -14,6 +14,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define EXIT_COORDINATE 1234
+
 void    socket_create(const struct p101_env *env, struct p101_error *err, int *sockfd, int domain);
 void    socket_bind(const struct p101_env *env, struct p101_error *err, int sockfd, in_port_t port, struct sockaddr_storage *addr);
 void    serialize_position_to_buffer(const struct p101_env *env, const struct coordinates *coordinates, uint8_t *buffer);
