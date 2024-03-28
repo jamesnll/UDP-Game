@@ -8,10 +8,13 @@
 
 #define UNKNOWN_OPTION_MESSAGE_LEN 24
 #define REQUIRED_ARGS_NUM 5
+#define MAX_CLIENTS 10
 
 static void           parse_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
 static void           check_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
 static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct context *context);
+static int            check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
+static void           add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
 
 int main(int argc, char *argv[])
 {
@@ -20,6 +23,7 @@ int main(int argc, char *argv[])
     struct p101_env   *env;
     struct arguments   arguments;
     struct context     context;
+    char              *client_addresses[MAX_CLIENTS] = {0};
 
     error = p101_error_create(false);
 
@@ -74,6 +78,7 @@ int main(int argc, char *argv[])
         struct coordinates coordinates;
         ssize_t            bytes_read;
         uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
+        int                address_index;
 
         client_addr_len = sizeof(client_addr);
         memset(&client_addr, 0, sizeof(client_addr));
@@ -82,11 +87,38 @@ int main(int argc, char *argv[])
         coordinates.y = 0;
 
         bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&client_addr, client_addr_len);
+        if(bytes_read == -1)
+        {
+            break;
+        }
         deserialize_position_from_buffer(env, &coordinates, buffer);
-        printf("Bytes read: %zu\n X: %d\nY: %d\n", (size_t)bytes_read, (int)coordinates.x, (int)coordinates.y);
+        printf("Bytes read: %zd\n X: %d\nY: %d\n", bytes_read, (int)coordinates.x, (int)coordinates.y);
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-        printf("Client IP address: %s\n", client_ip);
-        printf("Client port: %d\n", ntohs(client_addr.sin_port));
+
+        address_index = check_existing_client_address(env, client_addresses, client_ip);
+        printf("Client addr: %s\n", client_ip);
+        if(address_index == -1)
+        {
+            add_client_address(env, client_addresses, client_ip);
+        }
+
+        // Remove if exit coords
+        if((coordinates.x == EXIT_COORDINATE && coordinates.y == EXIT_COORDINATE) && address_index != 1)
+        {
+            printf("Removed client address %s\n", client_addresses[address_index]);
+            free(client_addresses[address_index]);
+            client_addresses[address_index] = NULL;
+        }
+
+        // broadcast
+    }
+
+    for(int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if(client_addresses[i] != NULL)
+        {
+            free(client_addresses[i]);
+        }
     }
 
     ret_val = EXIT_SUCCESS;
@@ -215,16 +247,36 @@ static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct
     exit(context->exit_code);
 }
 
-/*
- * TODO: Storing client IP addresses to broadcast
- * have an array of string ip addresses
- * dynamic memory
- * reallocs for each connection
- * check if ip address is in the array
- * if found, skip
- * if not found, add to the array
- * frees when disconnected
- */
+static int check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address)    // cppcheck-suppress constParameter
+{
+    P101_TRACE(env);
+
+    for(int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if(client_addresses[i] != NULL && strcmp(client_addresses[i], ip_address) == 0)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static void add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address)
+{
+    P101_TRACE(env);
+
+    // iterate through the loop
+    for(int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if(client_addresses[i] == NULL)
+        {
+            client_addresses[i] = strdup(ip_address);
+            printf("Client address %s stored at index %d\n", ip_address, i);
+            break;
+        }
+    }
+}
 
 /*
  * TODO: Broadcasting messages
@@ -233,13 +285,4 @@ static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct
  * iterate through the IP address array
  * if the recv msg ip address matches the index in the array, continue
  * if the recv msg ip address doesn't match the index in the array, send the recv msg to that IP address
- */
-
-/*
- * TODO: Removing a client IP address from the array
- * Client disconnects, send a special set of coords? (something out of bounds)
- * Server receives the coords
- * If the coords match the "exit coords"
- * Free that index from the array
- * Reorder array
  */
