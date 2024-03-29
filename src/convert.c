@@ -1,9 +1,5 @@
 #include "../include/convert.h"
 
-static in_port_t parse_in_port_t(const struct p101_env *env, struct p101_error *err, const char *port_str);
-static void      convert_address(const struct p101_env *env, struct p101_error *err, const char *ip_address, struct sockaddr_storage *addr, socklen_t *addr_len);
-static void      get_address_to_server(const struct p101_env *env, struct p101_error *err, struct sockaddr_storage *addr, in_port_t port);
-
 void convert_client_args(const struct p101_env *env, struct p101_error *err, struct context *context)
 {
     P101_TRACE(env);
@@ -62,7 +58,7 @@ done:
     return;
 }
 
-static in_port_t parse_in_port_t(const struct p101_env *env, struct p101_error *err, const char *port_str)
+in_port_t parse_in_port_t(const struct p101_env *env, struct p101_error *err, const char *port_str)
 {
     char     *endptr;
     uintmax_t parsed_value;
@@ -97,7 +93,7 @@ done:
     return (in_port_t)parsed_value;
 }
 
-static void convert_address(const struct p101_env *env, struct p101_error *err, const char *ip_address, struct sockaddr_storage *addr, socklen_t *addr_len)
+void convert_address(const struct p101_env *env, struct p101_error *err, const char *ip_address, struct sockaddr_storage *addr, socklen_t *addr_len)
 {
     P101_TRACE(env);
 
@@ -119,7 +115,7 @@ static void convert_address(const struct p101_env *env, struct p101_error *err, 
     }
 }
 
-static void get_address_to_server(const struct p101_env *env, struct p101_error *err, struct sockaddr_storage *addr, in_port_t port)
+void get_address_to_server(const struct p101_env *env, struct p101_error *err, struct sockaddr_storage *addr, in_port_t port)
 {
     P101_TRACE(env);
 
