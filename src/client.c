@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
 
     while((ch = wgetch(w)) != 'q')    // get the input
     {
+        ssize_t bytes_read;
         // use a variable to increment or decrement the value based on the input.
         switch(ch)
         {
@@ -121,6 +122,19 @@ int main(int argc, char *argv[])
         wrefresh(w);                                                                                                                                                // update the terminal screen
         serialize_position_to_buffer(env, &coordinates, buffer);                                                                                                    // Serialize the coordinates struct
         socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);    // Send updated coordinates to server
+
+        memset(buffer, 0, sizeof(buffer));
+
+        // Currently bugged, use select to handle concurrent read/writes
+        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&context.settings.src_addr, context.settings.dest_addr_len);
+        if(bytes_read > 0)
+        {
+            coordinates.x = 0;
+            coordinates.y = 0;
+            deserialize_position_from_buffer(env, &coordinates, buffer);
+            mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);
+            wrefresh(w);
+        }
     }
     delwin(w);
     endwin();

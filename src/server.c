@@ -16,8 +16,7 @@ static void           check_arguments(struct p101_env *env, struct p101_error *e
 static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct context *context);
 static int            check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
 static void           add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address, char *client_ports[], in_port_t port);
-
-static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, char *client_addresses[], char *client_ports[], const char *address, const struct coordinates *coordinates);
+static void           broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, char *client_addresses[], char *client_ports[], const char *address, const struct coordinates *coordinates);
 
 int main(int argc, char *argv[])
 {
@@ -90,7 +89,7 @@ int main(int argc, char *argv[])
         coordinates.x = 0;
         coordinates.y = 0;
 
-        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&client_addr, client_addr_len);
+        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, client_addr_len);
         if(bytes_read == -1)
         {
             break;
