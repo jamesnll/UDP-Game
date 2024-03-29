@@ -17,7 +17,7 @@ static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct
 static int            check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
 static void           add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address, char *client_ports[], in_port_t port);
 
-// static void           broadcast_coordinates(const struct p101_env *env, struct p101_error *err, char *client_addresses[], int address_index, struct coordinates *coordinates);
+static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, char *client_addresses[], char *client_ports[], const char *address, const struct coordinates *coordinates);
 
 int main(int argc, char *argv[])
 {
@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
 
         address_index = check_existing_client_address(env, client_addresses, client_ip);
+        printf("addr index: %d\n", address_index);
         if(address_index == -1)
         {
             add_client_address(env, client_addresses, client_ip, client_ports, client_addr.sin_port);
@@ -111,11 +112,12 @@ int main(int argc, char *argv[])
             printf("Removed client address %s\n", client_addresses[address_index]);
             free(client_addresses[address_index]);
             free(client_ports[address_index]);
-            client_ports[address_index]     = NULL;
             client_addresses[address_index] = NULL;
+            client_ports[address_index]     = NULL;
         }
 
         // broadcast
+        broadcast_coordinates(env, error, context.settings.sockfd, client_addresses, client_ports, client_ip, &coordinates);
     }
 
     for(int i = 0; i < MAX_CLIENTS; i++)
@@ -281,7 +283,6 @@ static void add_client_address(const struct p101_env *env, char *client_addresse
             client_addresses[i] = strdup(ip_address);
             printf("Client address %s stored at index %d\n", ip_address, i);
 
-            printf("Port: %hu\n", ntohs(port));
             snprintf(port_str, PORT_SIZE, "%hu", ntohs(port));
             client_ports[i] = strdup(port_str);
             printf("Client port %s stored at index %d\n", port_str, i);
@@ -291,21 +292,32 @@ static void add_client_address(const struct p101_env *env, char *client_addresse
     }
 }
 
-// static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, char *client_addresses[], int address_index, struct coordinates *coordinates)
-//{
-//     uint8_t                 buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
-//     struct sockaddr_storage dest_addr;
-//     socklen_t               src_addr_len;
-//     in_port_t               port;
-//
-//     P101_TRACE(env);
-// }
+static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, char *client_addresses[], char *client_ports[], const char *address, const struct coordinates *coordinates)
+{
+    uint8_t                 buffer[sizeof(coordinates->x) + sizeof(coordinates->y)];
+    struct sockaddr_storage addr;
+    socklen_t               addr_len;
+    in_port_t               port;
+    ssize_t                 bytes_read;
 
-/*
- * TODO: Broadcasting messages
- * receive message from client
- * store client IP address into array (from steps above) if needed
- * iterate through the IP address array
- * if the recv msg ip address matches the index in the array, continue
- * if the recv msg ip address doesn't match the index in the array, send the recv msg to that IP address
- */
+    P101_TRACE(env);
+
+    for(int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if(client_addresses[i] != NULL)
+        {
+            if(strcmp(address, client_addresses[i]) == 0)
+            {
+                continue;
+            }
+
+            port = parse_in_port_t(env, err, client_ports[i]);
+            convert_address(env, err, client_addresses[i], &addr, &addr_len);
+            get_address_to_server(env, err, &addr, port);
+
+            serialize_position_to_buffer(env, coordinates, buffer);
+            bytes_read = socket_write_full(env, sockfd, buffer, sizeof(buffer), (struct sockaddr *)&addr, addr_len);
+            printf("%zd bytes sent to client %s:%s\n", bytes_read, client_addresses[i], client_ports[i]);
+        }
+    }
+}
