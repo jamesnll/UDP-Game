@@ -9,12 +9,15 @@
 #define UNKNOWN_OPTION_MESSAGE_LEN 24
 #define REQUIRED_ARGS_NUM 5
 #define MAX_CLIENTS 10
+#define PORT_SIZE 5
 
 static void           parse_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
 static void           check_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
 static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct context *context);
 static int            check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
-static void           add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
+static void           add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address, char *client_ports[], in_port_t port);
+
+// static void           broadcast_coordinates(const struct p101_env *env, struct p101_error *err, char *client_addresses[], int address_index, struct coordinates *coordinates);
 
 int main(int argc, char *argv[])
 {
@@ -24,6 +27,7 @@ int main(int argc, char *argv[])
     struct arguments   arguments;
     struct context     context;
     char              *client_addresses[MAX_CLIENTS] = {0};
+    char              *client_ports[MAX_CLIENTS]     = {0};
 
     error = p101_error_create(false);
 
@@ -96,10 +100,9 @@ int main(int argc, char *argv[])
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
 
         address_index = check_existing_client_address(env, client_addresses, client_ip);
-        printf("Client addr: %s\n", client_ip);
         if(address_index == -1)
         {
-            add_client_address(env, client_addresses, client_ip);
+            add_client_address(env, client_addresses, client_ip, client_ports, client_addr.sin_port);
         }
 
         // Remove if exit coords
@@ -107,6 +110,8 @@ int main(int argc, char *argv[])
         {
             printf("Removed client address %s\n", client_addresses[address_index]);
             free(client_addresses[address_index]);
+            free(client_ports[address_index]);
+            client_ports[address_index]     = NULL;
             client_addresses[address_index] = NULL;
         }
 
@@ -262,21 +267,39 @@ static int check_existing_client_address(const struct p101_env *env, char *clien
     return -1;
 }
 
-static void add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address)
+static void add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address, char *client_ports[], in_port_t port)
 {
     P101_TRACE(env);
 
     // iterate through the loop
     for(int i = 0; i < MAX_CLIENTS; i++)
     {
-        if(client_addresses[i] == NULL)
+        char port_str[PORT_SIZE];
+
+        if(client_addresses[i] == NULL && client_ports[i] == NULL)
         {
             client_addresses[i] = strdup(ip_address);
             printf("Client address %s stored at index %d\n", ip_address, i);
+
+            printf("Port: %hu\n", ntohs(port));
+            snprintf(port_str, PORT_SIZE, "%hu", ntohs(port));
+            client_ports[i] = strdup(port_str);
+            printf("Client port %s stored at index %d\n", port_str, i);
+
             break;
         }
     }
 }
+
+// static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, char *client_addresses[], int address_index, struct coordinates *coordinates)
+//{
+//     uint8_t                 buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
+//     struct sockaddr_storage dest_addr;
+//     socklen_t               src_addr_len;
+//     in_port_t               port;
+//
+//     P101_TRACE(env);
+// }
 
 /*
  * TODO: Broadcasting messages
