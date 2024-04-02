@@ -5,6 +5,7 @@
 #include <p101_c/p101_string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/select.h>
 
 #define INITIAL_Y 5
 #define INITIAL_X 7
@@ -29,7 +30,10 @@ int main(int argc, char *argv[])
     struct arguments   arguments;
     struct context     context;
     struct coordinates coordinates;
+    struct coordinates read_coordinates;
     uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
+    fd_set             readfds;
+    int                maxfd;
 
     error = p101_error_create(false);
     if(error == NULL)
@@ -74,66 +78,99 @@ int main(int argc, char *argv[])
         goto close_socket;
     }
 
-    coordinates.x = INITIAL_X;
-    coordinates.y = INITIAL_Y;
+    coordinates.x      = INITIAL_X;
+    coordinates.y      = INITIAL_Y;
+    read_coordinates.x = 1;
+    read_coordinates.y = 1;
 
     initscr();                                             // initialize Ncurses
     w = newwin(WINDOW_Y_LENGTH, WINDOW_X_LENGTH, 1, 1);    // create a new window
     setup_window(w, &coordinates, player);
-
-    while((ch = wgetch(w)) != 'q')    // get the input
+    while(1)    // get the input
     {
-        ssize_t bytes_read;
-        // use a variable to increment or decrement the value based on the input.
-        switch(ch)
+        struct timeval timeout;
+
+        // Clear the socket set
+        FD_ZERO(&readfds);
+
+        FD_SET(STDIN_FILENO, &readfds);               // Add standard input to the set
+        FD_SET(context.settings.sockfd, &readfds);    // Add socket file descriptor to the set
+
+        timeout.tv_sec  = 0;    // Set seconds to 0 for immediate return
+        timeout.tv_usec = 0;    // Set microseconds to 0 for immediate return
+
+        maxfd = (STDIN_FILENO > context.settings.sockfd) ? STDIN_FILENO : context.settings.sockfd;
+
+        // Wait for activity on either standard input or socket
+        if(select(maxfd + 1, &readfds, NULL, NULL, &timeout) == -1)
         {
-            case KEY_UP:
-                if(coordinates.y != 1)
-                {
-                    coordinates.y--;
-                    mvwprintw(w, (int)coordinates.y + 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
-                }
-                break;
-            case KEY_DOWN:
-                if(coordinates.y != WINDOW_Y_LENGTH - 2)
-                {
-                    coordinates.y++;
-                    mvwprintw(w, (int)coordinates.y - 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
-                }
-                break;
-            case KEY_LEFT:
-                if(coordinates.x != 1)
-                {
-                    coordinates.x--;
-                    mvwprintw(w, (int)coordinates.y, (int)coordinates.x + 1, "%s", " ");    // replace old character position with space
-                }
-                break;
-            case KEY_RIGHT:
-                if(coordinates.x != WINDOW_X_LENGTH - 2)
-                {
-                    coordinates.x++;
-                    mvwprintw(w, (int)coordinates.y, (int)coordinates.x - 1, "%s", " ");    // replace old character position with space
-                }
-                break;
-            default:
-                break;
+            perror("select");
+            exit(EXIT_FAILURE);
         }
-        mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);                                                                                         // update the characters position
-        wrefresh(w);                                                                                                                                                // update the terminal screen
-        serialize_position_to_buffer(env, &coordinates, buffer);                                                                                                    // Serialize the coordinates struct
-        socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);    // Send updated coordinates to server
 
-        memset(buffer, 0, sizeof(buffer));
-
-        // Currently bugged, use select to handle concurrent read/writes
-        bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&context.settings.src_addr, context.settings.dest_addr_len);
-        if(bytes_read > 0)
+        // If activity is on the socket (reading)
+        if(FD_ISSET(context.settings.sockfd, &readfds))
         {
-            coordinates.x = 0;
-            coordinates.y = 0;
-            deserialize_position_from_buffer(env, &coordinates, buffer);
-            mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);
-            wrefresh(w);
+            ssize_t bytes_read;
+
+            mvwprintw(w, (int)read_coordinates.y, (int)read_coordinates.x, "%s", " ");    // replace old character position with space
+            bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&context.settings.src_addr, context.settings.dest_addr_len);
+            if(bytes_read > 0)
+            {
+                deserialize_position_from_buffer(env, &read_coordinates, buffer);
+                mvwprintw(w, (int)read_coordinates.y, (int)read_coordinates.x, "%s", player);
+                wrefresh(w);
+                memset(buffer, 0, sizeof(buffer));
+            }
+        }
+
+        // Check if there is input from the user
+        if(FD_ISSET(STDIN_FILENO, &readfds))
+        {
+            ch = wgetch(w);
+            if(ch == 'q')
+            {
+                break;    // Exit loop if 'q' is pressed
+            }
+            // use a variable to increment or decrement the value based on the input.
+            switch(ch)
+            {
+                case KEY_UP:
+                    if(coordinates.y != 1)
+                    {
+                        coordinates.y--;
+                        mvwprintw(w, (int)coordinates.y + 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                    }
+                    break;
+                case KEY_DOWN:
+                    if(coordinates.y != WINDOW_Y_LENGTH - 2)
+                    {
+                        coordinates.y++;
+                        mvwprintw(w, (int)coordinates.y - 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                    }
+                    break;
+                case KEY_LEFT:
+                    if(coordinates.x != 1)
+                    {
+                        coordinates.x--;
+                        mvwprintw(w, (int)coordinates.y, (int)coordinates.x + 1, "%s", " ");    // replace old character position with space
+                    }
+                    break;
+                case KEY_RIGHT:
+                    if(coordinates.x != WINDOW_X_LENGTH - 2)
+                    {
+                        coordinates.x++;
+                        mvwprintw(w, (int)coordinates.y, (int)coordinates.x - 1, "%s", " ");    // replace old character position with space
+                    }
+                    break;
+                default:
+                    break;
+            }
+            mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);                                                                                         // update the characters position
+            wrefresh(w);                                                                                                                                                // update the terminal screen
+            serialize_position_to_buffer(env, &coordinates, buffer);                                                                                                    // Serialize the coordinates struct
+            socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);    // Send updated coordinates to server
+            memset(buffer, 0, sizeof(buffer));
         }
     }
     delwin(w);
