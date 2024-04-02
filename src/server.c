@@ -124,6 +124,7 @@ int main(int argc, char *argv[])
         if(client_addresses[i] != NULL)
         {
             free(client_addresses[i]);
+            free(client_ports[i]);
         }
     }
 
