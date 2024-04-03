@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
                 mvwprintw(w, (int)read_coordinates.old_y, (int)read_coordinates.old_x, "%s", " ");
                 if(read_coordinates.new_x == EXIT_COORDINATE && read_coordinates.new_y == EXIT_COORDINATE)
                 {
-                    mvwprintw(w, (int)read_coordinates.new_y, (int)read_coordinates.new_x, "%s", " ");
+                    mvwprintw(w, (int)read_coordinates.old_y, (int)read_coordinates.old_x, "%s", " ");
                 }
                 else
                 {
@@ -191,6 +191,8 @@ int main(int argc, char *argv[])
     endwin();
 
     // write the exit coords to server
+    coordinates.old_x = coordinates.new_x;
+    coordinates.old_y = coordinates.new_y;
     coordinates.new_x = EXIT_COORDINATE;
     coordinates.new_y = EXIT_COORDINATE;
     serialize_position_to_buffer(env, &coordinates, buffer);
