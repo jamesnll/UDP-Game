@@ -8,15 +8,14 @@
 
 #define UNKNOWN_OPTION_MESSAGE_LEN 24
 #define REQUIRED_ARGS_NUM 5
-#define MAX_CLIENTS 10
-#define PORT_SIZE 5
 
 static void           parse_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
 static void           check_arguments(struct p101_env *env, struct p101_error *err, struct context *context);
 static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct context *context);
-static int            check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address);
-static void           add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address, char *client_ports[], in_port_t port);
-static void           broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, char *client_addresses[], char *client_ports[], const char *address, const struct coordinates *coordinates);
+static int            check_existing_client_address(const struct p101_env *env, struct client_info *clients, const char *ip_address);
+static void           add_client(const struct p101_env *env, struct client_info *clients, const char *ip_address, in_port_t port, struct coordinates *coordinates);
+static void           update_client(const struct p101_env *env, struct client_info *clients, struct coordinates *coordinates, int client_index);
+static void           broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, struct client_info *clients, const char *address, int client_index);
 
 int main(int argc, char *argv[])
 {
@@ -25,8 +24,7 @@ int main(int argc, char *argv[])
     struct p101_env   *env;
     struct arguments   arguments;
     struct context     context;
-    char              *client_addresses[MAX_CLIENTS] = {0};
-    char              *client_ports[MAX_CLIENTS]     = {0};
+    struct client_info clients[MAX_CLIENTS] = {0};
 
     error = p101_error_create(false);
 
@@ -80,14 +78,11 @@ int main(int argc, char *argv[])
         socklen_t          client_addr_len;
         struct coordinates coordinates;
         ssize_t            bytes_read;
-        uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
-        int                address_index;
+        uint8_t            buffer[sizeof(coordinates.old_x) + sizeof(coordinates.old_y) + sizeof(coordinates.new_x) + sizeof(coordinates.new_y)];
+        int                client_index;
 
         client_addr_len = sizeof(client_addr);
         memset(&client_addr, 0, sizeof(client_addr));
-
-        coordinates.x = 0;
-        coordinates.y = 0;
 
         bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, client_addr_len);
         if(bytes_read == -1)
@@ -95,36 +90,29 @@ int main(int argc, char *argv[])
             break;
         }
         deserialize_position_from_buffer(env, &coordinates, buffer);
-        printf("Bytes read: %zd\n X: %d\nY: %d\n", bytes_read, (int)coordinates.x, (int)coordinates.y);
+        printf("Bytes read: %zd\nold X: %d\nold Y: %d\nnew x: %d\nnew y: %d\n", bytes_read, (int)coordinates.old_x, (int)coordinates.old_y, (int)coordinates.new_x, (int)coordinates.new_y);
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-
-        address_index = check_existing_client_address(env, client_addresses, client_ip);
-        printf("addr index: %d\n", address_index);
-        if(address_index == -1)
+        printf("Client ip: %s\n", client_ip);
+        client_index = check_existing_client_address(env, clients, client_ip);
+        printf("client index: %d\n", client_index);
+        if(client_index == -1)
         {
-            add_client_address(env, client_addresses, client_ip, client_ports, client_addr.sin_port);
+            add_client(env, clients, client_ip, client_addr.sin_port, &coordinates);
+        }
+        else
+        {
+            update_client(env, clients, &coordinates, client_index);
+            // broadcast
+            broadcast_coordinates(env, error, context.settings.sockfd, clients, client_ip, client_index);
         }
 
         // Remove if exit coords
-        if((coordinates.x == EXIT_COORDINATE && coordinates.y == EXIT_COORDINATE) && address_index != 1)
+        if((coordinates.new_x == EXIT_COORDINATE && coordinates.new_y == EXIT_COORDINATE) && client_index != 1)
         {
-            printf("Removed client address %s\n", client_addresses[address_index]);
-            free(client_addresses[address_index]);
-            free(client_ports[address_index]);
-            client_addresses[address_index] = NULL;
-            client_ports[address_index]     = NULL;
-        }
-
-        // broadcast
-        broadcast_coordinates(env, error, context.settings.sockfd, client_addresses, client_ports, client_ip, &coordinates);
-    }
-
-    for(int i = 0; i < MAX_CLIENTS; i++)
-    {
-        if(client_addresses[i] != NULL)
-        {
-            free(client_addresses[i]);
-            free(client_ports[i]);
+            printf("Removed client address %s\n", clients[client_index].client_ip);
+            clients[client_index].client_ip[0] = '\0';
+            clients[client_index].client_port  = 0;
+            memset(&clients[client_index].coordinates, 0, sizeof(struct coordinates));
         }
     }
 
@@ -254,13 +242,13 @@ static _Noreturn void usage(struct p101_env *env, struct p101_error *err, struct
     exit(context->exit_code);
 }
 
-static int check_existing_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address)    // cppcheck-suppress constParameter
+static int check_existing_client_address(const struct p101_env *env, struct client_info *clients, const char *ip_address)    // cppcheck-suppress constParameterPointer
 {
     P101_TRACE(env);
 
     for(int i = 0; i < MAX_CLIENTS; i++)
     {
-        if(client_addresses[i] != NULL && strcmp(client_addresses[i], ip_address) == 0)
+        if(strcmp(clients[i].client_ip, ip_address) == 0)
         {
             return i;
         }
@@ -269,55 +257,57 @@ static int check_existing_client_address(const struct p101_env *env, char *clien
     return -1;
 }
 
-static void add_client_address(const struct p101_env *env, char *client_addresses[], const char *ip_address, char *client_ports[], in_port_t port)
+static void add_client(const struct p101_env *env, struct client_info *clients, const char *ip_address, in_port_t port, struct coordinates *coordinates)    // cppcheck-suppress constParameterPointer
 {
     P101_TRACE(env);
 
-    // iterate through the loop
     for(int i = 0; i < MAX_CLIENTS; i++)
     {
-        char port_str[PORT_SIZE];
-
-        if(client_addresses[i] == NULL && client_ports[i] == NULL)
+        if(clients[i].client_ip[0] == '\0')
         {
-            client_addresses[i] = strdup(ip_address);
-            printf("Client address %s stored at index %d\n", ip_address, i);
-
-            snprintf(port_str, PORT_SIZE, "%hu", ntohs(port));
-            client_ports[i] = strdup(port_str);
-            printf("Client port %s stored at index %d\n", port_str, i);
-
+            strncpy(clients[i].client_ip, ip_address, INET6_ADDRSTRLEN);
+            clients[i].client_ip[INET6_ADDRSTRLEN - 1] = '\0';
+            clients[i].client_port                     = htons(port);
+            clients[i].coordinates                     = *coordinates;
             break;
         }
     }
 }
 
-static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, char *client_addresses[], char *client_ports[], const char *address, const struct coordinates *coordinates)
+static void update_client(const struct p101_env *env, struct client_info *clients, struct coordinates *coordinates, int client_index)    // cppcheck-suppress constParameterPointer
 {
-    uint8_t                 buffer[sizeof(coordinates->x) + sizeof(coordinates->y)];
+    P101_TRACE(env);
+
+    clients[client_index].coordinates = *coordinates;
+}
+
+static void broadcast_coordinates(const struct p101_env *env, struct p101_error *err, int sockfd, struct client_info *clients, const char *address, int client_index)    // cppcheck-suppress constParameterPointer
+{
+    struct coordinates      coordinates;
+    uint8_t                 buffer[sizeof(coordinates.old_x) + sizeof(coordinates.old_y) + sizeof(coordinates.new_x) + sizeof(coordinates.new_y)];
     struct sockaddr_storage addr;
     socklen_t               addr_len;
-    in_port_t               port;
-    ssize_t                 bytes_read;
+    ssize_t                 bytes_written;
 
     P101_TRACE(env);
 
     for(int i = 0; i < MAX_CLIENTS; i++)
     {
-        if(client_addresses[i] != NULL)
+        if(clients[i].client_ip[0] != '\0')
         {
-            if(strcmp(address, client_addresses[i]) == 0)
+            printf("%s %s\n", address, clients[i].client_ip);
+            // Skip if the received address is the index address
+            if(strcmp(address, clients[i].client_ip) == 0)
             {
                 continue;
             }
 
-            port = parse_in_port_t(env, err, client_ports[i]);
-            convert_address(env, err, client_addresses[i], &addr, &addr_len);
-            get_address_to_server(env, err, &addr, port);
+            convert_address(env, err, clients[i].client_ip, &addr, &addr_len);
+            get_address_to_server(env, err, &addr, clients[i].client_port);
 
-            serialize_position_to_buffer(env, coordinates, buffer);
-            bytes_read = socket_write_full(env, sockfd, buffer, sizeof(buffer), (struct sockaddr *)&addr, addr_len);
-            printf("%zd bytes sent to client %s:%s\n", bytes_read, client_addresses[i], client_ports[i]);
+            serialize_position_to_buffer(env, &clients[client_index].coordinates, buffer);
+            bytes_written = socket_write_full(env, sockfd, buffer, sizeof(buffer), (struct sockaddr *)&addr, addr_len);
+            printf("%zd bytes sent to client %s\n", bytes_written, clients[i].client_ip);
         }
     }
 }

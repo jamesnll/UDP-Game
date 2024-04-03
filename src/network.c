@@ -4,7 +4,7 @@ void socket_create(const struct p101_env *env, struct p101_error *err, int *sock
 {
     P101_TRACE(env);
 
-    *sockfd = socket(domain, SOCK_DGRAM, 0);
+    *sockfd = socket(domain, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 
     if(*sockfd == -1)
     {
@@ -68,30 +68,42 @@ done:
 
 void serialize_position_to_buffer(const struct p101_env *env, const struct coordinates *coordinates, uint8_t *buffer)
 {
-    uint32_t net_x;
-    uint32_t net_y;
+    uint32_t net_old_x;
+    uint32_t net_old_y;
+    uint32_t net_new_x;
+    uint32_t net_new_y;
 
     P101_TRACE(env);
 
-    net_x = htonl(coordinates->x);
-    net_y = htonl(coordinates->y);
+    net_old_x = htonl(coordinates->old_x);
+    net_old_y = htonl(coordinates->old_y);
+    net_new_x = htonl(coordinates->new_x);
+    net_new_y = htonl(coordinates->new_y);
 
-    memcpy(buffer, &net_x, sizeof(net_x));
-    memcpy(buffer + sizeof(net_x), &net_y, sizeof(net_y));
+    memcpy(buffer, &net_old_x, sizeof(net_old_x));
+    memcpy(buffer + sizeof(net_old_x), &net_old_y, sizeof(net_old_y));
+    memcpy(buffer + sizeof(net_old_x) + sizeof(net_old_y), &net_new_x, sizeof(net_new_x));
+    memcpy(buffer + sizeof(net_old_x) + sizeof(net_old_y) + sizeof(net_new_x), &net_new_y, sizeof(net_new_y));
 }
 
 void deserialize_position_from_buffer(const struct p101_env *env, struct coordinates *coordinates, const uint8_t *buffer)
 {
-    uint32_t net_x;
-    uint32_t net_y;
+    uint32_t net_old_x;
+    uint32_t net_old_y;
+    uint32_t net_new_x;
+    uint32_t net_new_y;
 
     P101_TRACE(env);
 
-    memcpy(&net_x, buffer, sizeof(net_x));
-    memcpy(&net_y, buffer + sizeof(net_x), sizeof(net_y));
+    memcpy(&net_old_x, buffer, sizeof(net_old_x));
+    memcpy(&net_old_y, buffer + sizeof(net_old_x), sizeof(net_old_y));
+    memcpy(&net_new_x, buffer + sizeof(net_old_x) + sizeof(net_old_y), sizeof(net_new_x));
+    memcpy(&net_new_y, buffer + sizeof(net_old_x) + sizeof(net_old_y) + sizeof(net_new_x), sizeof(net_new_y));
 
-    coordinates->x = ntohl(net_x);
-    coordinates->y = ntohl(net_y);
+    coordinates->old_x = ntohl(net_old_x);
+    coordinates->old_y = ntohl(net_old_y);
+    coordinates->new_x = ntohl(net_new_x);
+    coordinates->new_y = ntohl(net_new_y);
 }
 
 ssize_t socket_read_full(const struct p101_env *env, int sockfd, uint8_t *buffer, size_t size, int flags, struct sockaddr *addr, socklen_t addrlen)

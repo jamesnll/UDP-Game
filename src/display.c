@@ -8,6 +8,6 @@ void setup_window(WINDOW *w, const struct coordinates *coordinates, const char *
     cbreak();
     curs_set(0);    // hide the default screen cursor.
 
-    mvwprintw(w, (int)coordinates->y, (int)coordinates->x, "%s", player);    // Set the position of the characte to (7,5)
-    wrefresh(w);                                                             // update the terminal screen
+    mvwprintw(w, (int)coordinates->new_y, (int)coordinates->new_x, "%s", player);    // Set the position of the characte to (7,5)
+    wrefresh(w);                                                                     // update the terminal screen
 }

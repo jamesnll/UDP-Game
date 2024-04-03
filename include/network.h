@@ -15,6 +15,8 @@
 #include <unistd.h>
 
 #define EXIT_COORDINATE 1234
+#define PORT_SIZE 5
+#define MAX_CLIENTS 10
 
 void    socket_create(const struct p101_env *env, struct p101_error *err, int *sockfd, int domain);
 void    socket_bind(const struct p101_env *env, struct p101_error *err, int sockfd, in_port_t port, struct sockaddr_storage *addr);

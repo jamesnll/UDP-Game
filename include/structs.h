@@ -41,7 +41,16 @@ struct context
 
 struct coordinates
 {
-    uint32_t x;
-    uint32_t y;
+    uint32_t old_x;
+    uint32_t old_y;
+    uint32_t new_x;
+    uint32_t new_y;
+};
+
+struct client_info
+{
+    char               client_ip[INET6_ADDRSTRLEN];
+    in_port_t          client_port;
+    struct coordinates coordinates;
 };
 #endif    // UDP_GAME_STRUCTS_H

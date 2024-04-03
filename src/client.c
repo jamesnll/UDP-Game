@@ -29,9 +29,9 @@ int main(int argc, char *argv[])
     struct p101_error *error;
     struct arguments   arguments;
     struct context     context;
-    struct coordinates coordinates;
-    struct coordinates read_coordinates;
-    uint8_t            buffer[sizeof(coordinates.x) + sizeof(coordinates.y)];
+    struct coordinates coordinates      = {0};
+    struct coordinates read_coordinates = {0};
+    uint8_t            buffer[sizeof(coordinates.old_x) + sizeof(coordinates.old_y) + sizeof(coordinates.new_x) + sizeof(coordinates.new_y)];
     fd_set             readfds;
     int                maxfd;
 
@@ -78,10 +78,10 @@ int main(int argc, char *argv[])
         goto close_socket;
     }
 
-    coordinates.x      = INITIAL_X;
-    coordinates.y      = INITIAL_Y;
-    read_coordinates.x = 1;
-    read_coordinates.y = 1;
+    coordinates.old_x = INITIAL_X;
+    coordinates.old_y = INITIAL_Y;
+    coordinates.new_x = INITIAL_X;
+    coordinates.new_y = INITIAL_Y;
 
     initscr();                                             // initialize Ncurses
     w = newwin(WINDOW_Y_LENGTH, WINDOW_X_LENGTH, 1, 1);    // create a new window
@@ -112,13 +112,19 @@ int main(int argc, char *argv[])
         if(FD_ISSET(context.settings.sockfd, &readfds))
         {
             ssize_t bytes_read;
-
-            mvwprintw(w, (int)read_coordinates.y, (int)read_coordinates.x, "%s", " ");    // replace old character position with space
             bytes_read = socket_read_full(env, context.settings.sockfd, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&context.settings.src_addr, context.settings.dest_addr_len);
             if(bytes_read > 0)
             {
                 deserialize_position_from_buffer(env, &read_coordinates, buffer);
-                mvwprintw(w, (int)read_coordinates.y, (int)read_coordinates.x, "%s", player);
+                mvwprintw(w, (int)read_coordinates.old_y, (int)read_coordinates.old_x, "%s", " ");
+                if(read_coordinates.new_x == EXIT_COORDINATE && read_coordinates.new_y == EXIT_COORDINATE)
+                {
+                    mvwprintw(w, (int)read_coordinates.new_y, (int)read_coordinates.new_x, "%s", " ");
+                }
+                else
+                {
+                    mvwprintw(w, (int)read_coordinates.new_y, (int)read_coordinates.new_x, "%s", player);
+                }
                 wrefresh(w);
                 memset(buffer, 0, sizeof(buffer));
             }
@@ -136,37 +142,45 @@ int main(int argc, char *argv[])
             switch(ch)
             {
                 case KEY_UP:
-                    if(coordinates.y != 1)
+                    if(coordinates.new_y != 1)
                     {
-                        coordinates.y--;
-                        mvwprintw(w, (int)coordinates.y + 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                        coordinates.old_x = coordinates.new_x;
+                        coordinates.old_y = coordinates.new_y;
+                        coordinates.new_y--;
+                        mvwprintw(w, (int)coordinates.new_y + 1, (int)coordinates.new_x, "%s", " ");    // replace old character position with space
                     }
                     break;
                 case KEY_DOWN:
-                    if(coordinates.y != WINDOW_Y_LENGTH - 2)
+                    if(coordinates.new_y != WINDOW_Y_LENGTH - 2)
                     {
-                        coordinates.y++;
-                        mvwprintw(w, (int)coordinates.y - 1, (int)coordinates.x, "%s", " ");    // replace old character position with space
+                        coordinates.old_x = coordinates.new_x;
+                        coordinates.old_y = coordinates.new_y;
+                        coordinates.new_y++;
+                        mvwprintw(w, (int)coordinates.new_y - 1, (int)coordinates.new_x, "%s", " ");    // replace old character position with space
                     }
                     break;
                 case KEY_LEFT:
-                    if(coordinates.x != 1)
+                    if(coordinates.new_x != 1)
                     {
-                        coordinates.x--;
-                        mvwprintw(w, (int)coordinates.y, (int)coordinates.x + 1, "%s", " ");    // replace old character position with space
+                        coordinates.old_x = coordinates.new_x;
+                        coordinates.old_y = coordinates.new_y;
+                        coordinates.new_x--;
+                        mvwprintw(w, (int)coordinates.new_y, (int)coordinates.new_x + 1, "%s", " ");    // replace old character position with space
                     }
                     break;
                 case KEY_RIGHT:
-                    if(coordinates.x != WINDOW_X_LENGTH - 2)
+                    if(coordinates.new_x != WINDOW_X_LENGTH - 2)
                     {
-                        coordinates.x++;
-                        mvwprintw(w, (int)coordinates.y, (int)coordinates.x - 1, "%s", " ");    // replace old character position with space
+                        coordinates.old_x = coordinates.new_x;
+                        coordinates.old_y = coordinates.new_y;
+                        coordinates.new_x++;
+                        mvwprintw(w, (int)coordinates.new_y, (int)coordinates.new_x - 1, "%s", " ");    // replace old character position with space
                     }
                     break;
                 default:
                     break;
             }
-            mvwprintw(w, (int)coordinates.y, (int)coordinates.x, "%s", player);                                                                                         // update the characters position
+            mvwprintw(w, (int)coordinates.new_y, (int)coordinates.new_x, "%s", player);                                                                                 // update the characters position
             wrefresh(w);                                                                                                                                                // update the terminal screen
             serialize_position_to_buffer(env, &coordinates, buffer);                                                                                                    // Serialize the coordinates struct
             socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);    // Send updated coordinates to server
@@ -177,8 +191,8 @@ int main(int argc, char *argv[])
     endwin();
 
     // write the exit coords to server
-    coordinates.x = EXIT_COORDINATE;
-    coordinates.y = EXIT_COORDINATE;
+    coordinates.new_x = EXIT_COORDINATE;
+    coordinates.new_y = EXIT_COORDINATE;
     serialize_position_to_buffer(env, &coordinates, buffer);
     socket_write_full(env, context.settings.sockfd, buffer, sizeof(buffer), (struct sockaddr *)&context.settings.dest_addr, context.settings.dest_addr_len);
 
